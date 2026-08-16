@@ -287,44 +287,88 @@ button:focus-visible, a:focus-visible {
     height: auto !important;
     min-height: 100vh;
     overflow: visible !important;
-    display: block;
+    display: flex;
+    flex-direction: column;
     padding-bottom: 8px;
   }
+  .overlay { display: contents; }
+  .bottom { display: contents; }
 
-  /* scene art becomes a hero band instead of a full-bleed backdrop */
-  .desk-photo { position: absolute; top: 0; left: 0; right: 0; height: 52vh; z-index: 0; }
+  .desk-photo {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background-size: cover;
+    background-position: center;
+  }
   .scrim {
-    position: absolute; top: 0; left: 0; right: 0; bottom: auto; height: 52vh; z-index: 1;
+    position: fixed;
+    inset: 0;
+    z-index: 1;
     background: linear-gradient(to bottom,
-      rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.12) 30%,
-      color-mix(in srgb, var(--page-bg) 65%, transparent) 82%, var(--page-bg) 100%);
+      rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.22) 16%, rgba(0,0,0,0.3) 60%, rgba(0,0,0,0.5) 100%);
   }
 
-  .overlay {
+  .top-row { order: 1; position: relative; z-index: 7; margin: 20px 20px 0; }
+  /* top strip pills stay small so they read as a status line, not a headline */
+  .live-count, .clock { font-size: 13px; padding: 5px 10px; gap: 6px; }
+
+  .hero { order: 2; position: relative; z-index: 7; margin: 4px 20px 0; max-width: 100%; }
+  .hero-accent {
+    font-size: 40px;
+    text-align: center;
+    margin: 0 0 10px;
+  }
+  .hero-title { font-size: clamp(32px, 8vw, 36px); text-align: center; }
+
+  .scene-copy {
+    order: 3;
+    position: relative;
+    z-index: 7;
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    gap: 8px;
+    margin: 230px 20px 0;
+    max-width: 100%;
+  }
+  .eyebrow { font-size: 11px; margin: 0; }
+  .headline { font-size: clamp(18px, 5vw, 20px); line-height: 1.25; margin: 0; }
+  .detail { display: block; font-size: 13.5px; line-height: 1.5; opacity: 0.86; margin: 0; max-width: 100%; }
+
+  .music-card {
+    order: 4;
     position: relative !important;
-    inset: auto !important;
-    min-height: 52vh;
-    padding: 14px 16px 0;
+    left: auto !important; bottom: auto !important;
+    transform: none !important;
+    width: auto !important; max-width: none;
+    margin: 32px 20px 0;
+    gap: 6px;
+    padding: 8px 12px;
   }
-  .hero { margin-top: 6px; max-width: 100%; }
-  .hero-accent { font-size: 30px; margin-left: 2px; }
-  .hero-title { font-size: clamp(38px, 12vw, 54px); }
-  /* `margin-top: auto` collapses once the column overflows, so space it explicitly */
-  .bottom { max-width: 100%; gap: 14px; margin-top: 22px; }
-  .detail { display: block; }   /* the copy is the point on mobile — keep it */
-  .headline { font-size: clamp(21px, 5.6vw, 28px); }
+  .mus-art { width: 36px; height: 36px; }
+  .mus-hole { width: 9px; height: 9px; }
+  .mus-meta { gap: 1px; }
+  .mus-now { font-size: 12.5px; }
+  .mus-artist { font-size: 11px; }
+  .mus-btns { gap: 10px; }
+  .mus-btn { width: 28px; height: 28px; font-size: 11px; }
+  .mus-play { width: 34px; height: 34px; font-size: 12px; }
+  .mus-links { gap: 6px; flex-wrap: nowrap; }
+  .mus-yt { padding: 4px 8px; font-size: 10px; white-space: nowrap; }
 
-  .dsa-bar { max-width: 100%; }
+  .dsa-bar { order: 5; position: relative; z-index: 7; max-width: none; margin: 32px 20px 0; }
   .dsa-btns { flex-wrap: wrap; }
 
-  /* floating panels stop floating and simply stack in the flow */
   .float {
     position: relative !important;
     left: auto !important; top: auto !important;
     width: auto !important; height: 330px !important;
-    margin: 14px 16px 0;
+    margin: 20px 20px 0;
   }
-  .float-lab { height: 74vh !important; }
+  /* IDE follows the DSA bar closely — the two read as one "on screen" module */
+  .float-ide { order: 6; }
+  .float-lab { order: 9; height: 74vh !important; }
   .float-head { cursor: default; }
   .float-resize { display: none; }          /* no corner-drag on touch */
   .float-expand, .float-reset { display: none; }
@@ -332,27 +376,24 @@ button:focus-visible, a:focus-visible {
   .lab-body { flex-direction: column; }
   .lab-list { width: 100%; max-height: 132px; border-right: none; border-bottom: 1px solid #1a2333; }
 
-  .music-card {
-    position: relative !important;
-    left: auto !important; bottom: auto !important;
-    transform: none !important;
-    width: auto !important; max-width: none;
-    margin: 14px 16px 0;
-  }
+  .lab-desc { padding: 12px 14px; gap: 6px; border-right: none; border-bottom: 1px solid #1a2333; }
+  .lab-desc-text, .lab-ex, .lab-constraints { display: none; }
 
   .timeline {
+    order: 7;
     position: relative !important;
     right: auto !important; bottom: auto !important;
-    margin: 20px 16px 4px;
+    margin: 32px 20px 4px;
     justify-content: center; flex-wrap: wrap; gap: 16px;
   }
   .tl-label { font-size: 13px; }
   .tl-dot { width: 10px; height: 10px; }
 
   .credit {
+    order: 8;
     position: relative !important;
     right: auto !important; bottom: auto !important;
-    text-align: center; padding: 14px 16px 22px;
+    text-align: center; padding: 14px 20px 22px;
   }
 }
 
@@ -401,17 +442,15 @@ button:focus-visible, a:focus-visible {
 
 /* ============ MUSIC CARD (audio plays via a visually-hidden iframe) ============ */
 .music-card {
-  /* original balanced position; still draggable when the user wants to nudge it */
   position: absolute; left: 56%; bottom: 74px; transform: translateX(-50%);
   z-index: 8;
   width: min(470px, 86vw);
   display: flex; flex-direction: column; gap: 14px;
-  /* more transparent glass panel, still readable without feeling heavy */
-  background: color-mix(in srgb, var(--room) 4%, rgba(8, 11, 17, 0.08));
-  border: 1px solid color-mix(in srgb, var(--panel-border) 60%, transparent);
+  background: color-mix(in srgb, var(--room) 2%, rgba(8, 11, 17, 0.035));
+  border: 1px solid color-mix(in srgb, var(--panel-border) 35%, transparent);
   border-radius: 16px; padding: 16px 18px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.18);
-  backdrop-filter: blur(12px) saturate(1.1);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  backdrop-filter: blur(8px) saturate(1.1);
 }
 
 .mus-head {
