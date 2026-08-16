@@ -64,6 +64,13 @@ export default function Page() {
   const musicRef = useRef<null | { toggle: () => void; prev: () => void; next: () => void }>(null);
 
   useEffect(() => {
+    if (!labOpen) return;
+    if (!window.matchMedia("(max-width: 760px)").matches) return;
+    const el = document.querySelector(".float-lab");
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [labOpen]);
+
+  useEffect(() => {
     setTrackIdxByScene(readTrackIndexState());
   }, []);
 
@@ -204,6 +211,18 @@ export default function Page() {
         </div>
       </div>
 
+      <Tablet
+        track={track}
+        playlistId={scenePlaylist}
+        sceneId={scene.id}
+        startIndex={sceneTrackIdx}
+        onPrev={prevTrack}
+        onNext={nextTrack}
+        onPlayingChange={setIsPlaying}
+        onTrackChange={setNowPlaying}
+        onToggleRef={musicRef}
+      />
+
       {/* live IDE — floats in the open space under the title, draggable/resizable */}
       <Floating
         title="live ide"
@@ -224,18 +243,6 @@ export default function Page() {
           onEditInLab={(id) => { setLabProblem(id); setLabOpen(true); }}
         />
       </Floating>
-
-      <Tablet
-        track={track}
-        playlistId={scenePlaylist}
-        sceneId={scene.id}
-        startIndex={sceneTrackIdx}
-        onPrev={prevTrack}
-        onNext={nextTrack}
-        onPlayingChange={setIsPlaying}
-        onTrackChange={setNowPlaying}
-        onToggleRef={musicRef}
-      />
 
       <div className="timeline">
         {SCENES.map((s) => {

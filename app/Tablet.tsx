@@ -452,7 +452,7 @@ export default function Tablet({
           target="_blank"
           rel="noopener noreferrer"
         >
-          {playlistId ? "Open playlist on YouTube" : "Watch on YouTube"}
+          {playlistId ? "Open YouTube" : "Watch on YouTube"}
         </a>
         <a
           className="mus-yt"
