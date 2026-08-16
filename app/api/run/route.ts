@@ -1,32 +1,16 @@
 import { NextResponse } from "next/server";
 
-/**
- * Judge0 proxy for the Code Lab's non-JavaScript languages.
- * (JavaScript never gets here — it runs locally in a Web Worker.)
- *
- * Runs server-side for two reasons: it keeps JUDGE0_KEY out of the browser
- * bundle, and it avoids CORS against the Judge0 host.
- *
- * By default it uses the public Judge0 CE instance, which needs no key.
- * Set JUDGE0_URL + JUDGE0_KEY (RapidAPI) for a higher quota.
- */
 const PUBLIC_CE = "https://ce.judge0.com";
 
-/**
- * Cap the serverless function below the platform limit (Vercel Hobby is 60s,
- * but a hung upstream shouldn't sit there burning it). The fetch aborts at 20s
- * so we always return a real error instead of being killed mid-flight.
- */
 export const maxDuration = 30;
 
-// Verified against GET /languages on the live instance.
-// NOT exported: Next.js route files only allow specific named exports.
 const LANGUAGE_IDS: Record<string, number> = {
   python: 92,     // 3.11.2
   typescript: 94, // 5.0.3
   java: 91,       // JDK 17.0.6
   cpp: 54,        // GCC 9.2.0
   go: 95,         // 1.18.5
+  php: 98,        // 8.3.11
   javascript: 93, // Node 18.15.0 (fallback only)
 };
 
@@ -35,7 +19,7 @@ const unb64 = (s: string | null | undefined) =>
   s ? Buffer.from(s, "base64").toString("utf8") : "";
 
 export async function POST(req: Request) {
-  let body: { language?: string; source?: string };
+  let body: { language?: string; source?: string; input?: string };
   try {
     body = await req.json();
   } catch {
@@ -60,8 +44,6 @@ export async function POST(req: Request) {
     headers["X-RapidAPI-Host"] = new URL(host).hostname;
   }
 
-  // base64_encoded=true is required: compile errors routinely contain bytes
-  // that aren't valid UTF-8, and plain mode rejects the whole request with 400.
   const url = `${host}/submissions?base64_encoded=true&wait=true`;
 
   const ctrl = new AbortController();
@@ -74,6 +56,7 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         source_code: b64(body.source ?? ""),
         language_id: languageId,
+        stdin: b64(body.input ?? ""),
       }),
       signal: ctrl.signal,
     });
@@ -127,8 +110,6 @@ export async function POST(req: Request) {
     const aborted = e instanceof Error && e.name === "AbortError";
     return NextResponse.json(
       {
-        // a timeout is usually a slow upstream, not an exhausted quota —
-        // don't latch display-only mode over one slow request
         exhausted: !aborted,
         error: aborted
           ? "Judge0 took longer than 20s to answer. It's usually just busy — hit Run again."

@@ -1,19 +1,20 @@
 "use client";
 import { useMemo, useState } from "react";
-import { INTERVIEW, NEETCODE_150, type Problem } from "./problems";
+import dynamic from "next/dynamic";
+import { INTERVIEW, type Problem } from "./problems";
+import { testsFor } from "./problemTests";
+import { detailFor } from "./problemDetails";
+import { codeFor, scratchFor } from "./solutions";
 import Floating from "./Floating";
-import { runJs } from "./runJs";
+import { runJs, runJsTests, type TestResult } from "./runJs";
+import NowPlaying, { type MusicBridge } from "./NowPlaying";
 
-/**
- * Two-tier execution:
- *   1. Judge0 (via /api/run) for the compiled/other languages
- *   2. a local Web Worker for JavaScript
- *
- * JS always runs for real — tier 2 is free, instant, and can't be rate-limited.
- * When Judge0's free quota runs out, the other languages degrade to
- * display-only instead of erroring. Versions below match the language ids
- * verified in app/api/run/route.ts.
- */
+// CodeMirror touches the DOM on construction, so keep it out of the server render
+const Editor = dynamic(() => import("./Editor"), {
+  ssr: false,
+  loading: () => <div className="lab-editor-loading">Loading editor…</div>,
+});
+
 const LANGS = [
   { id: "javascript", label: "JavaScript", version: "local" },
   { id: "python",     label: "Python",     version: "3.11.2" },
@@ -21,28 +22,52 @@ const LANGS = [
   { id: "java",       label: "Java",       version: "JDK 17" },
   { id: "cpp",        label: "C++",        version: "GCC 9.2" },
   { id: "go",         label: "Go",         version: "1.18.5" },
+  { id: "php",        label: "PHP",        version: "8.3.11" },
 ];
 
-export default function CodeLab({ onClose }: { onClose: () => void }) {
-  const [list, setList] = useState<"interview" | "neetcode150">("interview");
-  const problems = list === "interview" ? INTERVIEW : NEETCODE_150;
-  const [selId, setSelId] = useState(problems[0].id);
+export default function CodeLab({
+  onClose,
+  initialProblemId = null,
+  music,
+}: {
+  onClose: () => void;
+  /** open straight onto a problem — the monitor's Edit button uses this */
+  initialProblemId?: string | null;
+  /** lets the lab show and drive the music while it covers the card */
+  music?: MusicBridge | null;
+}) {
+  // NeetCode 150 is parked for now — only the practice list is offered
+  const problems = INTERVIEW;
+  const [selId, setSelId] = useState<string | null>(initialProblemId);
   const sel = useMemo(
-    () => problems.find((p) => p.id === selId) ?? problems[0],
+    () => (selId ? problems.find((p) => p.id === selId) ?? null : null),
     [problems, selId]
   );
 
   const [lang, setLang] = useState(LANGS[0]);
-  const [code, setCode] = useState(sel.starter ?? "");
+  const [code, setCode] = useState(() => {
+    const p = initialProblemId ? INTERVIEW.find((x) => x.id === initialProblemId) : null;
+    return p ? codeFor(p.id, LANGS[0].id)?.starter ?? p.starter ?? "" : scratchFor(LANGS[0].id);
+  });
   const [output, setOutput] = useState("");
   const [running, setRunning] = useState(false);
   const [showSol, setShowSol] = useState(false);
-  // flips once the remote runner refuses (quota/whitelist/offline) and stays
-  // flipped for the session, so we stop hammering a runner that's used up
+  const [results, setResults] = useState<TestResult[] | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
   const [remoteDown, setRemoteDown] = useState(false);
 
   const isJs = lang.id === "javascript";
   const displayOnly = !isJs && remoteDown;
+  const detail = sel ? detailFor(sel.id) : null;
+  const cases = sel ? testsFor(sel.id) : [];
+
+  const native = sel ? codeFor(sel.id, lang.id) : null;
+  const solutionLines = native ? native.solution : sel?.solution ?? [];
+  const starterFor = (p: Problem, langId: string) =>
+    codeFor(p.id, langId)?.starter ?? p.starter ?? "";
+  const canTest = isJs && cases.length > 0;
+  const passed = results?.filter((r) => r.pass).length ?? 0;
 
   const grouped = useMemo(() => {
     const g: Record<string, Problem[]> = {};
@@ -52,9 +77,38 @@ export default function CodeLab({ onClose }: { onClose: () => void }) {
 
   function pick(p: Problem) {
     setSelId(p.id);
-    setCode(p.starter ?? "");
+    setCode(starterFor(p, lang.id));
     setOutput("");
     setShowSol(false);
+    setResults(null);
+    setListOpen(false);
+  }
+
+  /** Back to a blank editor with no problem attached. */
+  function openScratch() {
+    setSelId(null);
+    setCode(scratchFor(lang.id));
+    setOutput("");
+    setShowSol(false);
+    setResults(null);
+    setListOpen(false);
+  }
+
+  /** Switching language swaps in that language's starter for what is open. */
+  function pickLang(langId: string) {
+    const next = LANGS.find((l) => l.id === langId)!;
+    setLang(next);
+    setCode(sel ? starterFor(sel, langId) : scratchFor(langId));
+    setOutput("");
+    setResults(null);
+  }
+
+  /** Run the problem's pre-written cases against the editor's code. */
+  async function test() {
+    setTesting(true);
+    setResults(null);
+    setResults(await runJsTests(code, cases));
+    setTesting(false);
   }
 
   /** Quota is gone: latch display-only and show the solution instead. */
@@ -73,7 +127,7 @@ export default function CodeLab({ onClose }: { onClose: () => void }) {
 
     // tier 2: JavaScript executes locally, always available
     if (isJs) {
-      setOutput(await runJs(code));
+      setOutput(await runJs(code, 4000));
       setRunning(false);
       return;
     }
@@ -90,7 +144,7 @@ export default function CodeLab({ onClose }: { onClose: () => void }) {
       const res = await fetch("/api/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ language: lang.id, source: code }),
+        body: JSON.stringify({ language: lang.id, source: code, input: "" }),
       });
       const data = await res.json().catch(() => null);
 
@@ -114,10 +168,16 @@ export default function CodeLab({ onClose }: { onClose: () => void }) {
   return (
     <Floating
       title="Code Lab"
+      brand={(
+        <>
+          <img src="/logo.png" alt="" />
+          <span>coders desk</span>
+        </>
+      )}
       defaultX={90}
       defaultY={120}
-      defaultW={960}
-      defaultH={620}
+      defaultW={1180}
+      defaultH={680}
       minW={520}
       minH={360}
       onClose={onClose}
@@ -125,22 +185,40 @@ export default function CodeLab({ onClose }: { onClose: () => void }) {
     >
       <div className="lab">
         <div className="lab-head">
-          <div className="lab-listtabs">
-            <button className={list === "interview" ? "on" : ""} onClick={() => { setList("interview"); setSelId(INTERVIEW[0].id); pick(INTERVIEW[0]); }}>Interview</button>
-            <button className={list === "neetcode150" ? "on" : ""} onClick={() => { setList("neetcode150"); setSelId(NEETCODE_150[0].id); pick(NEETCODE_150[0]); }}>NeetCode 150</button>
+          {/* two modes, and the active one says where you are */}
+          <div className="lab-modes">
+            <button
+              className={sel ? "on" : ""}
+              onClick={() => setListOpen((o) => !o)}
+              aria-expanded={listOpen}
+              title={listOpen ? "Hide the problem list" : "Show the problem list"}
+            >
+              ☰ Practice problems
+            </button>
+            <button
+              className={!sel ? "on" : ""}
+              onClick={openScratch}
+              title="A blank editor, no problem attached"
+            >
+              Scratchpad
+            </button>
           </div>
+
+          {music && <NowPlaying music={music} />}
+
         </div>
 
-        <div className="lab-body">
+        <div className={`lab-body ${listOpen ? "" : "list-closed"}`}>
           {/* problem list */}
           <aside className="lab-list">
+            <div className="lab-cat-name">Practice problems</div>
             {Object.entries(grouped).map(([cat, ps]) => (
               <div key={cat} className="lab-cat">
                 <div className="lab-cat-name">{cat}</div>
                 {ps.map((p) => (
                   <button
                     key={p.id}
-                    className={`lab-prob ${p.id === sel.id ? "sel" : ""}`}
+                    className={`lab-prob ${p.id === sel?.id ? "sel" : ""}`}
                     onClick={() => pick(p)}
                   >
                     {p.title}
@@ -151,30 +229,112 @@ export default function CodeLab({ onClose }: { onClose: () => void }) {
             ))}
           </aside>
 
-          {/* editor + run */}
-          <section className="lab-main">
-            <div className="lab-prompt">
-              <strong>{sel.title}</strong> <span>{sel.prompt}</span>
+          {/* statement on the left, workspace on the right — LeetCode layout.
+              With no problem open the workspace takes the whole width. */}
+          {sel && (
+          <section className="lab-desc">
+            <div className="lab-desc-head">
+              <strong>{sel.title}</strong>
+              <span className="lab-desc-tag">{sel.tag}</span>
             </div>
 
-            {sel.example && (
-              <div className="lab-example">
-                <div className="io-row">
-                  <span className="io-k">in</span>
-                  <span className="io-v">{sel.example.in}</span>
-                </div>
-                <div className="io-row">
-                  <span className="io-k io-k-out">out</span>
-                  <span className="io-v io-v-out">{sel.example.out}</span>
-                </div>
-              </div>
+            <div className="lab-desc-prompt">{sel.prompt}</div>
+
+            {detail ? (
+              <>
+                <p className="lab-desc-text">{detail.description}</p>
+
+                {detail.examples.map((ex, i) => (
+                  <div key={i} className="lab-ex">
+                    <div className="lab-ex-title">Example {i + 1}</div>
+                    <div className="lab-ex-row">
+                      <span className="lab-ex-k">Input</span>
+                      <pre className="lab-ex-v">{ex.in}</pre>
+                    </div>
+                    <div className="lab-ex-row">
+                      <span className="lab-ex-k lab-ex-k-out">Output</span>
+                      <pre className="lab-ex-v lab-ex-v-out">{ex.out}</pre>
+                    </div>
+                    {ex.note && (
+                      <div className="lab-ex-row">
+                        <span className="lab-ex-k">Note</span>
+                        <span className="lab-ex-note">{ex.note}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {detail.constraints && detail.constraints.length > 0 && (
+                  <div className="lab-constraints">
+                    <div className="lab-ex-title">Constraints</div>
+                    <ul>
+                      {detail.constraints.map((c, i) => (
+                        <li key={i}>{c}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
+            ) : (
+              sel.description && <p className="lab-desc-text">{sel.description}</p>
             )}
 
+            <button className="lab-sol" onClick={() => setShowSol((s) => !s)}>
+              {showSol ? "Hide solution" : "Show solution"}
+            </button>
+
+            {showSol && (
+              <div className="lab-solution">
+                {/* say which language this code actually IS, not which one is
+                    selected — they differ whenever we fall back to JavaScript */}
+                <div className="lab-output-label">
+                  reference solution ({native ? lang.label : "JavaScript"})
+                  {!native && !isJs && (
+                    <span className="lab-fallback-note">no {lang.label} version yet</span>
+                  )}
+                </div>
+                {solutionLines.length ? (
+                  <pre>{solutionLines.join("\n")}</pre>
+                ) : (
+                  <pre className="soon-text">Solution coming soon — try solving it yourself and hit Run!</pre>
+                )}
+              </div>
+            )}
+          </section>
+          )}
+
+          <section className={`lab-work ${sel ? "" : "solo"}`}>
+
+            <div className="lab-inline-help">
+              {!sel ? (
+                // scratchpad: there is no problem, so no test cases to mention
+                <>
+                  Scratchpad — write anything and hit Run.{" "}
+                  {isJs
+                    ? "JavaScript runs locally in your browser."
+                    : `${lang.label} runs on Judge0.`}{" "}
+                  Pick a practice problem for a statement, examples and tests.
+                </>
+              ) : isJs ? (
+                <>
+                  Runs locally in your browser — instant
+                  {cases.length > 0 && <>, and the {cases.length} test cases run against it</>}.
+                </>
+              ) : native ? (
+                <>
+                  {lang.label} runs on Judge0. The test cases are written against the JavaScript API, so
+                  switch to JavaScript to run them.
+                </>
+              ) : (
+                <>
+                  No {lang.label} starter yet — the editor and solution below are the JavaScript
+                  reference. JavaScript and Python are the languages with full starters today.
+                </>
+              )}
+            </div>
+
             <div className="lab-toolbar">
-              <select
-                value={lang.id}
-                onChange={(e) => setLang(LANGS.find((l) => l.id === e.target.value)!)}
-              >
+              <select value={lang.id} onChange={(e) => pickLang(e.target.value)}>
                 {LANGS.map((l) => (
                   <option key={l.id} value={l.id}>
                     {l.label}
@@ -187,49 +347,79 @@ export default function CodeLab({ onClose }: { onClose: () => void }) {
                 {running ? "Running…" : displayOnly ? "Run unavailable" : "▶ Run"}
               </button>
 
+              {cases.length > 0 && (
+                <button
+                  className="lab-test"
+                  onClick={test}
+                  disabled={testing || !canTest}
+                  title={
+                    canTest
+                      ? `Run ${cases.length} test cases against your code`
+                      : "Test cases are written in JavaScript — switch the language to run them"
+                  }
+                >
+                  {testing ? "Testing…" : `✓ Run ${cases.length} tests`}
+                </button>
+              )}
+
               {isJs ? (
                 <span className="lab-badge lab-badge-live">runs locally</span>
               ) : remoteDown ? (
                 <span className="lab-badge">display only</span>
               ) : null}
-
-              <button className="lab-sol" onClick={() => setShowSol((s) => !s)}>
-                {showSol ? "Hide solution" : "Show solution"}
-              </button>
             </div>
 
-            <textarea
-              className="lab-editor"
-              value={code}
-              spellCheck={false}
-              onChange={(e) => setCode(e.target.value)}
-            />
+            <Editor value={code} onChange={setCode} language={lang.id} />
 
             <div className="lab-output">
               <div className="lab-output-label">output</div>
               <pre>{output || "Run your code to see output here."}</pre>
             </div>
 
-            {showSol && (
-              <div className="lab-solution">
-                <div className="lab-output-label">reference solution (JavaScript)</div>
-                {sel.solution.length ? (
-                  <pre>{sel.solution.join("\n")}</pre>
-                ) : (
-                  <pre className="soon-text">Solution coming soon — try solving it yourself and hit Run!</pre>
-                )}
+            {results && (
+              <div className="lab-tests">
+                <div className="lab-output-label">
+                  test cases
+                  <span className={`lab-tests-score ${passed === results.length ? "all" : "some"}`}>
+                    {passed} / {results.length} passed
+                  </span>
+                </div>
+                <ul className="lab-test-list">
+                  {results.map((r, i) => (
+                    <li key={i} className={r.pass ? "ok" : "bad"}>
+                      <span className="lab-test-mark">{r.pass ? "✓" : "✗"}</span>
+                      <span className="lab-test-name">{r.name}</span>
+                      {!r.pass && (
+                        <span className="lab-test-detail">
+                          {r.error ? (
+                            <code className="lab-test-err">{r.error}</code>
+                          ) : (
+                            <>
+                              expected <code>{r.expected}</code> · got <code>{r.actual}</code>
+                            </>
+                          )}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
+
           </section>
         </div>
 
+        {/* only mention Judge0 and its quota when a Judge0 language is actually
+            selected — on JavaScript none of it applies */}
         <div className="lab-foot">
-          {remoteDown ? (
-            <>JavaScript runs locally in your browser · other languages are display-only (free{" "}
-            <a href="https://judge0.com" target="_blank" rel="noopener noreferrer">Judge0</a> quota used up)</>
+          {isJs ? (
+            <>JavaScript runs locally in your browser · instant, unlimited, and it can never be rate-limited · edit the call at the bottom of the editor to try your own input</>
+          ) : remoteDown ? (
+            <>{lang.label} is display-only — the free{" "}
+            <a href="https://judge0.com" target="_blank" rel="noopener noreferrer">Judge0</a> quota is used up · switch to JavaScript to keep running code for real</>
           ) : (
-            <>JavaScript runs locally in your browser · other languages run on{" "}
-            <a href="https://judge0.com" target="_blank" rel="noopener noreferrer">Judge0</a> while free quota lasts</>
+            <>{lang.label} runs on{" "}
+            <a href="https://judge0.com" target="_blank" rel="noopener noreferrer">Judge0</a> while free quota lasts · edit the call at the bottom of the editor to try your own input</>
           )}
         </div>
       </div>

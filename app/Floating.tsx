@@ -8,15 +8,12 @@ type Mode =
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-/**
- * A draggable + resizable glass panel. Drag by the header, resize from the
- * bottom-right corner, ⤢ toggles an expanded size and ⟲ resets to defaults.
- */
 export interface Rect { x: number; y: number; w: number; h: number }
 
 export default function Floating({
   title,
   tag,
+  brand,
   defaultX,
   defaultY,
   defaultW,
@@ -27,9 +24,11 @@ export default function Floating({
   onClose,
   className = "",
   children,
+  autoResetKey,
 }: {
   title: string;
   tag?: React.ReactNode;
+  brand?: React.ReactNode;
   defaultX: number;
   defaultY: number;
   defaultW: number;
@@ -41,6 +40,7 @@ export default function Floating({
   onClose?: () => void;
   className?: string;
   children: React.ReactNode;
+  autoResetKey?: string | number;
 }) {
   const [pos, setPos] = useState({ x: defaultX, y: defaultY });
   const [size, setSize] = useState({ w: defaultW, h: defaultH });
@@ -51,6 +51,12 @@ export default function Floating({
 
   // adopt the measured default, then keep the panel on screen
   useEffect(() => {
+    if (autoResetKey !== undefined) {
+      touchedRef.current = false;
+    }
+  }, [autoResetKey]);
+
+  useEffect(() => {
     const applyDefault = () => {
       if (!getDefault || touchedRef.current) return;
       const r = getDefault();
@@ -59,8 +65,6 @@ export default function Floating({
       setSize({ w: r.w, h: r.h });
     };
     applyDefault();
-    // the scene copy only reaches its real height once the clock resolves the
-    // live scene, so re-measure after that settles (unless already dragged)
     const t = setTimeout(applyDefault, 350);
     const fit = () => {
       setSize((s) => ({
@@ -78,8 +82,7 @@ export default function Floating({
       clearTimeout(t);
       window.removeEventListener("resize", fit);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [minW, minH]);
+  }, [getDefault, minW, minH]);
 
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
@@ -154,10 +157,21 @@ export default function Floating({
             <button className="float-btn float-x" onClick={onClose} title="Close" aria-label="Close">✕</button>
           )}
         </div>
+        {brand && (
+          <button type="button" className="float-brand" onClick={toggleExpand} title={expanded ? "Restore" : "Expand"} aria-label={expanded ? "Restore" : "Expand"}>
+            {brand}
+          </button>
+        )}
       </div>
 
       <div className="float-body">{children}</div>
 
+      <img
+        className="float-watermark"
+        src="/logo.png"
+        alt=""
+        aria-hidden="true"
+      />
       <div className="float-resize" onPointerDown={startResize} title="Drag to resize" />
     </div>
   );

@@ -22,8 +22,8 @@ export const SCENES: Scene[] = [
   {
     id: "deep-night",
     label: "Deep Night",
-    range: "1am – 4am",
-    startHour: 1,
+    range: "12am – 4am",
+    startHour: 0,
     endHour: 4,
     headline: "Peak flow. The bug finally makes sense at 3am.",
     detail:
@@ -117,9 +117,9 @@ export const SCENES: Scene[] = [
   {
     id: "night",
     label: "Night",
-    range: "7pm – 1am",
+    range: "7pm – 12am",
     startHour: 19,
-    endHour: 25, // wraps to 1am
+    endHour: 24,
     headline: "Everyone logged off. This is when it gets good.",
     detail:
       "Room dark except for the monitor. The city glows outside, the notifications have stopped, and the editor is the brightest thing in your life right now. Just you and the problem, the way you like it.",

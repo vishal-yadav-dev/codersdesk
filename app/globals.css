@@ -87,7 +87,25 @@ button:focus-visible, a:focus-visible {
   font-size: 11px; color: var(--muted); min-width: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.float-actions { margin-left: auto; display: flex; gap: 4px; flex-shrink: 0; }
+.float-brand {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,0.03);
+  border: 1px solid color-mix(in srgb, var(--muted) 18%, transparent);
+  margin-left: 0; cursor: pointer; color: var(--ink);
+}
+.float-brand:hover {
+  border-color: var(--glow); box-shadow: 0 0 0 1px color-mix(in srgb, var(--glow) 35%, transparent);
+}
+.float-brand img {
+  width: 18px; height: 18px; border-radius: 6px; object-fit: cover; display: block;
+}
+.float-brand span {
+  font-size: 10px; letter-spacing: 0.12em; text-transform: lowercase; color: var(--ink);
+  opacity: 0.9; white-space: nowrap;
+}
+.float-actions {
+  display: flex; gap: 4px; flex-shrink: 0; margin-left: auto;
+}
 .float-btn {
   width: 22px; height: 22px; border-radius: 6px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
@@ -98,6 +116,14 @@ button:focus-visible, a:focus-visible {
 .float-btn:hover { color: var(--ink); border-color: var(--glow); }
 .float-x:hover { color: #ff6b6b; border-color: #ff6b6b; }
 .float-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.float-watermark {
+  position: absolute; right: 18px; bottom: 10px; z-index: 1; pointer-events: none;
+  width: 72px; height: auto; opacity: 0.22;
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--glow) 33%, transparent));
+  user-select: none;
+}
+.float-ide .float-watermark { right: 18px; }
+.float-lab .float-watermark { right: 18px; left: auto; }
 .float-resize {
   position: absolute; right: 0; bottom: 0; width: 18px; height: 18px;
   cursor: nwse-resize; touch-action: none;
@@ -150,10 +176,6 @@ button:focus-visible, a:focus-visible {
 .c-kw { color: #c792ea; } .c-str { color: #c3e88d; }
 .c-com { color: #546178; font-style: italic; } .c-fn { color: #82aaff; }
 
-/* Sample input / output strip, pinned above the solver controls.
-   Hidden while the panel is small — there the solution is the point and
-   this strip just eats the code's vertical space. It appears once the
-   panel is expanded (or dragged) tall enough to afford it. */
 .solver-io {
   display: none;
   flex-shrink: 0; padding: 8px 12px;
@@ -225,7 +247,6 @@ button:focus-visible, a:focus-visible {
 .headline { font-size: clamp(22px, 3.4vw, 40px); font-weight: 700; line-height: 1.08; margin: 0 0 10px; color: var(--ink); text-shadow: 0 2px 20px rgba(0,0,0,0.55); }
 .detail { font-size: clamp(14px, 1.4vw, 16px); line-height: 1.6; color: var(--ink); opacity: 0.82; margin: 0; max-width: 560px; text-shadow: 0 1px 10px rgba(0,0,0,0.5); }
 
-
 .timeline {
   position: absolute;
   right: clamp(16px, 3vw, 40px);
@@ -256,12 +277,6 @@ button:focus-visible, a:focus-visible {
 .credit { position: absolute; right: 16px; bottom: 12px; z-index: 8; font-size: 12px; color: var(--muted); }
 .credit a { color: var(--ink); }
 
-/* ============================================================
-   MOBILE: the desktop layout is a fixed viewport with floating
-   panels stacked over each other, which collapses on a phone.
-   Below 760px everything becomes one scrolling column with the
-   scene as a hero band at the top.
-   ============================================================ */
 @media (max-width: 760px) {
   html, body { height: auto; min-height: 100%; overflow-y: auto; }
   body { background: var(--page-bg); }
@@ -285,9 +300,6 @@ button:focus-visible, a:focus-visible {
       color-mix(in srgb, var(--page-bg) 65%, transparent) 82%, var(--page-bg) 100%);
   }
 
-  /* title block sits over the art; the copy lands just under it.
-     these stay `relative` (not `static`) so their z-index still applies —
-     otherwise the absolutely-positioned art paints over them */
   .overlay {
     position: relative !important;
     inset: auto !important;
@@ -385,25 +397,35 @@ button:focus-visible, a:focus-visible {
 .dsa-btn:hover { border-color: var(--glow); }
 .dsa-btn:first-child { color: var(--glow); border-color: var(--glow); }
 
-
 .dsa-lab { border-color: var(--glow) !important; color: var(--glow) !important; }
 
 /* ============ MUSIC CARD (audio plays via a visually-hidden iframe) ============ */
 .music-card {
-  /* nudged right of dead-centre so it reads as centred against the left copy column */
+  /* original balanced position; still draggable when the user wants to nudge it */
   position: absolute; left: 56%; bottom: 74px; transform: translateX(-50%);
   z-index: 8;
   width: min(470px, 86vw);
   display: flex; flex-direction: column; gap: 14px;
-  /* deliberately light: ~26% opaque, leaning on the blur (not darkness) for legibility */
-  background: color-mix(in srgb, var(--room) 9%, rgba(8, 11, 17, 0.19));
-  border: 1px solid var(--panel-border);
+  /* more transparent glass panel, still readable without feeling heavy */
+  background: color-mix(in srgb, var(--room) 4%, rgba(8, 11, 17, 0.08));
+  border: 1px solid color-mix(in srgb, var(--panel-border) 60%, transparent);
   border-radius: 16px; padding: 16px 18px;
-  box-shadow: 0 18px 50px rgba(0,0,0,0.32);
-  backdrop-filter: blur(18px) saturate(1.15);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+  backdrop-filter: blur(12px) saturate(1.1);
 }
 
-.mus-head { display: flex; align-items: center; gap: 13px; min-width: 0; }
+.mus-head {
+  display: flex; align-items: center; gap: 13px; min-width: 0;
+  cursor: grab; user-select: none; touch-action: none;
+}
+.mus-head:active { cursor: grabbing; }
+.mus-reset {
+  margin-left: auto; flex-shrink: 0; border: 1px solid color-mix(in srgb, var(--muted) 45%, transparent);
+  background: rgba(0,0,0,0.18); color: var(--ink); border-radius: 999px;
+  padding: 6px 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  cursor: pointer; transition: all 0.15s ease;
+}
+.mus-reset:hover { border-color: var(--glow); color: var(--glow); }
 /* cover art as a little record: round, spinning while it plays */
 .mus-art {
   position: relative; flex-shrink: 0;
@@ -482,9 +504,6 @@ button:focus-visible, a:focus-visible {
 }
 .mus-hidden-player iframe { width: 1px; height: 1px; border: 0; }
 
-/* ===== Code Lab (rendered inside a floating panel) =====
-   Same glass treatment as the live IDE, and every colour comes from the
-   scene palette so the lab shifts with the hour along with everything else. */
 .lab {
   width: 100%; height: 100%;
   background: transparent;
@@ -529,10 +548,198 @@ button:focus-visible, a:focus-visible {
   border-radius: 4px; padding: 1px 4px;
 }
 
+/* ---- LeetCode-style split: statement left, workspace right ---- */
+/* Collapsing the list is a width change on the aside, so the two panes reflow
+   into the space instead of the grid re-laying out. */
+.lab-body.list-closed .lab-list {
+  width: 0; padding: 0; border-right: none; overflow: hidden;
+}
+.lab-listtoggle {
+  font-size: 11px; padding: 5px 10px; border-radius: 8px; cursor: pointer;
+  background: transparent; color: var(--muted); font-family: inherit;
+  border: 1px solid color-mix(in srgb, var(--muted) 38%, transparent);
+  white-space: nowrap; transition: all 0.15s;
+}
+.lab-listtoggle:hover { color: var(--ink); border-color: var(--glow); }
+
+/* what is currently open — "Scratchpad" or the problem title */
+.lab-where {
+  font-size: 12px; color: var(--ink); min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.np {
+  margin-left: auto; flex-shrink: 1; min-width: 0;
+  display: flex; align-items: center; gap: 9px;
+  padding: 4px 8px 4px 5px; border-radius: 999px;
+  background: color-mix(in srgb, var(--glow) 14%, rgba(4, 6, 14, 0.9));
+  border: 1px solid color-mix(in srgb, var(--glow) 42%, transparent);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.np-shut { opacity: 0.92; padding-right: 5px; }
+.np-open { opacity: 1; }
+.np:hover { border-color: var(--glow); background: color-mix(in srgb, var(--glow) 20%, rgba(4, 6, 14, 0.9)); }
+
+.np-disc {
+  position: relative; flex-shrink: 0; cursor: pointer;
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--glow) 55%, transparent);
+  background: #0b0f1a; padding: 0; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.np-disc:hover { border-color: var(--glow); }
+.np-disc img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.np-note { color: var(--glow); font-size: 15px; }
+.np-hole {
+  position: absolute; top: 50%; left: 50%; width: 6px; height: 6px;
+  margin: -3px 0 0 -3px; border-radius: 50%;
+  background: #05070d; border: 1px solid color-mix(in srgb, var(--muted) 50%, transparent);
+}
+/* the disc only turns while audio is actually playing */
+.np-spin { animation: np-rotate 4s linear infinite; }
+@keyframes np-rotate { to { transform: rotate(360deg); } }
+
+/* the whole trailing block collapses on mouse-out, leaving only the disc */
+.np-rest {
+  display: flex; align-items: center; gap: 9px; overflow: hidden;
+  max-width: 340px; opacity: 1;
+  transition: max-width 0.28s ease, opacity 0.2s ease;
+}
+.np-rest-hidden { max-width: 0; opacity: 0; }
+
+.np-meta { display: flex; flex-direction: column; min-width: 0; max-width: 200px; }
+.np-title {
+  font-size: 11.5px; color: var(--ink); font-weight: 700; line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.np-artist {
+  font-size: 10px; color: var(--muted); line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.np-btns {
+  display: flex; gap: 2px; flex-shrink: 0; overflow: hidden;
+  max-width: 90px; opacity: 1;
+  transition: max-width 0.25s ease, opacity 0.2s ease;
+}
+/* collapsed: the controls slide away, the disc and title stay put */
+.np-btns-hidden { max-width: 0; opacity: 0; }
+.np-btns button {
+  width: 22px; height: 22px; border-radius: 50%; cursor: pointer; flex-shrink: 0;
+  background: transparent; color: var(--ink); font-size: 10px; font-family: inherit;
+  border: 1px solid color-mix(in srgb, var(--muted) 34%, transparent);
+  display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+}
+.np-btns button:hover { border-color: var(--glow); color: var(--glow); }
+
+@media (prefers-reduced-motion: reduce) { .np-spin { animation: none; } }
+
+/* mode switch: whichever is lit is where you currently are */
+.lab-modes { display: flex; gap: 6px; flex-shrink: 0; }
+.lab-modes button {
+  font-size: 12px; padding: 5px 12px; border-radius: 999px; cursor: pointer;
+  background: transparent; color: var(--muted); font-family: inherit;
+  border: 1px solid color-mix(in srgb, var(--muted) 38%, transparent);
+  white-space: nowrap; transition: all 0.15s;
+}
+.lab-modes button:hover { color: var(--ink); border-color: var(--glow); }
+.lab-modes button.on {
+  background: var(--glow); color: #05070d; border-color: var(--glow); font-weight: 700;
+}
+
+/* no problem open: the editor + output own the whole panel */
+.lab-work.solo { flex: 1 1 100%; }
+
+.lab-desc {
+  flex: 1 1 46%; min-width: 0; overflow-y: auto;
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 12px;
+  border-right: 1px solid color-mix(in srgb, var(--muted) 22%, transparent);
+}
+.lab-desc-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.lab-desc-head strong { font-size: 17px; color: var(--ink); }
+.lab-desc-tag {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--glow);
+  border: 1px solid color-mix(in srgb, var(--glow) 40%, transparent);
+  border-radius: 999px; padding: 2px 9px;
+}
+.lab-desc-prompt { font-size: 12px; color: var(--muted); }
+.lab-desc-text { margin: 0; font-size: 13.5px; line-height: 1.7; color: var(--ink); opacity: 0.92; }
+
+.lab-ex {
+  border-left: 2px solid color-mix(in srgb, var(--glow) 45%, transparent);
+  padding: 2px 0 2px 12px; display: flex; flex-direction: column; gap: 4px;
+}
+.lab-ex-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+  color: var(--ink); margin-bottom: 2px;
+}
+.lab-ex-row { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; min-width: 0; }
+.lab-ex-k { flex-shrink: 0; width: 54px; color: var(--muted); font-size: 11px; padding-top: 2px; }
+.lab-ex-k-out { color: #28c840; }
+.lab-ex-v {
+  margin: 0; min-width: 0; color: var(--ink); white-space: pre-wrap; word-break: break-word;
+  font-family: inherit; font-size: 12.5px; line-height: 1.5;
+}
+.lab-ex-v-out { color: #28c840; }
+.lab-ex-note { min-width: 0; color: var(--muted); font-size: 11.5px; line-height: 1.5; }
+
+.lab-constraints { display: flex; flex-direction: column; gap: 4px; }
+.lab-constraints ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+.lab-constraints li { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+.lab-work {
+  flex: 1 1 54%; min-width: 0; display: flex; flex-direction: column;
+  padding: 12px 14px; gap: 10px; overflow-y: auto;
+}
+
+/* stacked on narrow panels, where a side-by-side split stops being readable */
+@container floatpanel (max-width: 900px) {
+  .lab-body { flex-direction: column; overflow-y: auto; }
+  .lab-desc { flex: none; border-right: none; border-bottom: 1px solid color-mix(in srgb, var(--muted) 22%, transparent); }
+  .lab-work { flex: none; }
+  .lab-list { width: 100%; }
+}
+
 .lab-main { flex: 1; display: flex; flex-direction: column; min-width: 0; padding: 12px 14px; gap: 10px; overflow-y: auto; }
-.lab-prompt { font-size: 13px; color: var(--ink); }
-.lab-prompt strong { color: var(--ink); }
-.lab-prompt span { color: var(--muted); margin-left: 6px; }
+.lab-problem-card {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 10px 12px; border-radius: 10px;
+  background: rgba(0,0,0,0.28);
+  border: 1px solid color-mix(in srgb, var(--muted) 22%, transparent);
+}
+.lab-problem-head {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 13px; color: var(--ink);
+}
+.lab-problem-head strong {
+  color: var(--ink); font-size: 15px;
+}
+.lab-problem-head span { color: var(--muted); }
+.lab-problem-text {
+  color: var(--ink); font-size: 13px; line-height: 1.6;
+  opacity: 0.9;
+}
+.lab-inline-help {
+  font-size: 11px; color: var(--muted); border: 1px solid color-mix(in srgb, var(--muted) 22%, transparent);
+  background: rgba(0,0,0,0.2); border-radius: 8px; padding: 6px 9px;
+}
+.lab-example-block {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px 10px; border-radius: 10px; font-size: 12.5px; line-height: 1.45;
+  background: rgba(0,0,0,0.22);
+  border: 1px solid color-mix(in srgb, var(--muted) 22%, transparent);
+}
+.lab-example-row {
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.lab-example-label {
+  width: 52px; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--muted); font-size: 10px; padding-top: 2px;
+}
+.lab-example-label-out { color: #28c840; }
+.lab-example-value {
+  min-width: 0; color: var(--ink); white-space: pre-wrap; word-break: break-word;
+}
+.lab-example-value-out { color: #28c840; }
 .lab-example {
   display: flex; flex-direction: column; gap: 4px;
   padding: 9px 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.45;
@@ -559,6 +766,46 @@ button:focus-visible, a:focus-visible {
 }
 .lab-badge-live { color: #28c840; border-color: color-mix(in srgb, #28c840 45%, transparent); }
 .lab-run:disabled { opacity: 0.5; cursor: not-allowed; }
+/* "Run tests" sits beside Run — outlined so Run stays the primary action */
+.lab-test {
+  background: transparent; color: #28c840; font-family: inherit; font-weight: 700;
+  border: 1px solid color-mix(in srgb, #28c840 48%, transparent);
+  border-radius: 8px; padding: 7px 13px; cursor: pointer; font-size: 13px;
+  white-space: nowrap; transition: all 0.15s;
+}
+.lab-test:hover:not(:disabled) {
+  border-color: #28c840; background: color-mix(in srgb, #28c840 12%, transparent);
+}
+.lab-test:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.lab-tests { margin-top: 10px; }
+.lab-tests-score {
+  margin-left: 8px; font-size: 10px; letter-spacing: 0.08em;
+  border-radius: 999px; padding: 2px 8px; text-transform: none;
+}
+.lab-tests-score.all { color: #28c840; border: 1px solid color-mix(in srgb, #28c840 45%, transparent); }
+.lab-tests-score.some { color: #ff8f6b; border: 1px solid color-mix(in srgb, #ff8f6b 45%, transparent); }
+
+.lab-test-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.lab-test-list li {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  padding: 6px 10px; border-radius: 8px; font-size: 12px; line-height: 1.5;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid transparent;
+}
+.lab-test-list li.ok { border-color: color-mix(in srgb, #28c840 26%, transparent); }
+.lab-test-list li.bad { border-color: color-mix(in srgb, #ff6b6b 34%, transparent); }
+.lab-test-mark { flex-shrink: 0; font-weight: 700; }
+.lab-test-list li.ok .lab-test-mark { color: #28c840; }
+.lab-test-list li.bad .lab-test-mark { color: #ff6b6b; }
+.lab-test-name { color: var(--ink); }
+.lab-test-detail { color: var(--muted); font-size: 11px; min-width: 0; word-break: break-word; }
+.lab-test-detail code {
+  color: var(--ink); background: rgba(255,255,255,0.06);
+  border-radius: 4px; padding: 1px 5px; font-family: inherit;
+}
+.lab-test-err { color: #ff8f6b !important; }
+
 .lab-sol {
   background: transparent; color: var(--glow); font-family: inherit;
   border: 1px solid color-mix(in srgb, var(--glow) 45%, transparent);
@@ -566,20 +813,48 @@ button:focus-visible, a:focus-visible {
   transition: all 0.15s;
 }
 .lab-sol:hover { border-color: var(--glow); }
-.lab-editor {
-  width: 100%; min-height: 220px; resize: vertical;
-  background: rgba(0,0,0,0.42); color: var(--ink);
-  border: 1px solid color-mix(in srgb, var(--muted) 26%, transparent);
+/* CodeMirror host. The library paints the inside (see Editor.tsx); this only
+   supplies the frame, so it keeps matching the stdin/output boxes around it. */
+.lab-editor-shell {
+  width: 100%; min-height: 220px; resize: vertical; overflow: hidden;
+  /* deeper and faintly scene-tinted, so the editor reads as its own writing
+     surface rather than another flat panel like stdin/output */
+  background: color-mix(in srgb, var(--glow) 9%, rgba(3, 5, 12, 0.78));
+  border: 1px solid color-mix(in srgb, var(--glow) 28%, transparent);
   border-radius: 10px;
-  padding: 12px; font-family: inherit; font-size: 13px; line-height: 1.55;
+  transition: border-color 0.15s;
 }
-.lab-editor:focus { outline: none; border-color: var(--glow); }
+.lab-editor-shell:focus-within { border-color: var(--glow); }
+.lab-editor-shell .cm-editor { height: 100%; }
+.lab-editor-loading {
+  width: 100%; min-height: 220px;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--glow) 9%, rgba(3, 5, 12, 0.78));
+  color: var(--muted);
+  border: 1px solid color-mix(in srgb, var(--glow) 28%, transparent);
+  border-radius: 10px; font-size: 12.5px;
+}
+.lab-input {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.lab-input-box {
+  width: 100%; min-height: 86px; resize: vertical;
+  background: rgba(0,0,0,0.32); color: var(--ink);
+  border: 1px solid color-mix(in srgb, var(--muted) 26%, transparent);
+  border-radius: 10px; padding: 10px 12px; font-family: inherit; font-size: 12.5px; line-height: 1.5;
+}
+.lab-input-box:focus { outline: none; border-color: var(--glow); }
 .lab-output, .lab-solution {
   background: rgba(0,0,0,0.42);
   border: 1px solid color-mix(in srgb, var(--muted) 26%, transparent);
   border-radius: 10px; padding: 10px 12px;
 }
 .lab-output-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 6px; }
+.lab-fallback-note {
+  margin-left: 8px; text-transform: none; letter-spacing: 0.04em;
+  color: #ff8f6b; border: 1px solid color-mix(in srgb, #ff8f6b 42%, transparent);
+  border-radius: 999px; padding: 2px 8px;
+}
 .lab-output pre, .lab-solution pre { margin: 0; white-space: pre-wrap; font-family: inherit; font-size: 12.5px; color: var(--ink); line-height: 1.5; }
 .soon-text { color: var(--muted) !important; }
 .lab-foot {

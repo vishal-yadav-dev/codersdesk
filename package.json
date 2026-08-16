@@ -3,11 +3,24 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack --port 8000",
+    "dev": "next dev --webpack --port ${PORT:-8000}",
     "build": "next build",
-    "start": "next start"
+    "start": "next start --port ${PORT:-3000}",
+    "verify:playlist": "node scripts/verify-playlist.mjs",
+    "verify:tests": "node scripts/verify-tests.mjs",
+    "verify:solutions": "node scripts/verify-solutions.mjs"
   },
   "dependencies": {
+    "@codemirror/commands": "^6.10.4",
+    "@codemirror/lang-cpp": "^6.0.3",
+    "@codemirror/lang-go": "^6.0.1",
+    "@codemirror/lang-java": "^6.0.2",
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/lang-php": "^6.0.2",
+    "@codemirror/lang-python": "^6.2.1",
+    "@codemirror/state": "^6.7.1",
+    "@codemirror/view": "^6.43.8",
+    "@uiw/react-codemirror": "^4.25.11",
     "next": "16.3.1",
     "react": "19.2.8",
     "react-dom": "19.2.8"

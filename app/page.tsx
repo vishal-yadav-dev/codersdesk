@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SCENES, sceneForHour, type Scene } from "./scenes";
-import { tracksForScene } from "./playlist";
+import { defaultTrackIndexForScene, playlistForScene, tracksForScene } from "./playlist";
 import DeskScene from "./DeskScene";
 import Solver, { type SolverHandle } from "./Solver";
 import Floating from "./Floating";
@@ -10,12 +10,26 @@ import Tablet from "./Tablet";
 import CodeLab from "./CodeLab";
 
 const IDE_W = 430;
+const TRACK_INDEX_STORAGE_KEY = "desk-scene-track-index-v1";
 
-/**
- * Park the live IDE in the empty band between the title and the scene copy.
- * That band shrinks on short viewports, so when it can't fit we move the
- * panel to the right of the copy column instead of covering the text.
- */
+function readTrackIndexState(): Record<string, number> {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const raw = window.localStorage.getItem(TRACK_INDEX_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return {};
+    return Object.fromEntries(
+      Object.entries(parsed)
+        .filter(([_, value]) => typeof value === "number")
+        .map(([key, value]) => [key, Number(value)])
+    );
+  } catch {
+    return {};
+  }
+}
+
 function ideDefaultRect() {
   const hero = document.querySelector(".hero")?.getBoundingClientRect();
   const copy = document.querySelector(".bottom")?.getBoundingClientRect();
@@ -23,12 +37,12 @@ function ideDefaultRect() {
   const avail = (copy ? copy.top : window.innerHeight) - top - 18;
 
   if (avail >= 210) {
-    return { x: 56, y: top, w: IDE_W, h: Math.min(300, avail) };
+    return { x: 72, y: top, w: IDE_W, h: Math.min(300, avail) };
   }
   // not enough vertical room — sit clear of the copy column on the right
-  const x = Math.max((copy?.right ?? 720) + 24, window.innerWidth - IDE_W - 40);
+  const x = Math.max((copy?.right ?? 720) + 48, window.innerWidth - IDE_W - 24);
   return {
-    x: Math.min(x, window.innerWidth - IDE_W - 24),
+    x: Math.min(x, window.innerWidth - IDE_W - 12),
     y: top,
     w: IDE_W,
     h: Math.min(300, window.innerHeight - top - 110),
@@ -40,10 +54,18 @@ export default function Page() {
   const [override, setOverride] = useState<Scene | null>(null);
   const [atDesk, setAtDesk] = useState(16);
   const [solving, setSolving] = useState<string>("");
-  const [trackIdx, setTrackIdx] = useState(0);
+  const [trackIdxByScene, setTrackIdxByScene] = useState<Record<string, number>>({});
   const [userPickedTrack, setUserPickedTrack] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [labOpen, setLabOpen] = useState(false);
+  const [labProblem, setLabProblem] = useState<string | null>(null);
   const solverRef = useRef<SolverHandle | null>(null);
+  const [nowPlaying, setNowPlaying] = useState({ title: "", artist: "", videoId: "" });
+  const musicRef = useRef<null | { toggle: () => void; prev: () => void; next: () => void }>(null);
+
+  useEffect(() => {
+    setTrackIdxByScene(readTrackIndexState());
+  }, []);
 
   useEffect(() => {
     setNow(new Date());
@@ -65,15 +87,26 @@ export default function Page() {
 
   // the playlist follows the hour: each scene has its own set of songs
   const sceneTracks = useMemo(() => tracksForScene(scene.id), [scene.id]);
+  const scenePlaylist = useMemo(() => playlistForScene(scene.id), [scene.id]);
 
-  // moving to a new time frame restarts that frame's list (unless the
-  // listener has taken over with prev/next)
   useEffect(() => {
-    if (userPickedTrack) return;
-    setTrackIdx(0);
-  }, [scene.id, userPickedTrack]);
+    if (userPickedTrack || isPlaying) return;
+    setTrackIdxByScene((prev) => ({
+      ...prev,
+      [scene.id]: prev[scene.id] ?? 0,
+    }));
+  }, [scene.id, userPickedTrack, isPlaying]);
 
-  const track = sceneTracks[trackIdx % sceneTracks.length];
+  const sceneTrackIdx = trackIdxByScene[scene.id] ?? defaultTrackIndexForScene(scene.id);
+  const track = sceneTracks[sceneTrackIdx % sceneTracks.length];
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(TRACK_INDEX_STORAGE_KEY, JSON.stringify(trackIdxByScene));
+    } catch {
+      // storage may be blocked; ignore silently
+    }
+  }, [trackIdxByScene]);
 
   useEffect(() => {
     const r = document.documentElement.style;
@@ -94,8 +127,36 @@ export default function Page() {
       })
     : "--:--:--";
 
-  const prevTrack = () => { setUserPickedTrack(true); setTrackIdx((i) => (i - 1 + sceneTracks.length) % sceneTracks.length); };
-  const nextTrack = () => { setUserPickedTrack(true); setTrackIdx((i) => (i + 1) % sceneTracks.length); };
+  const prevTrack = () => {
+    setUserPickedTrack(true);
+    setTrackIdxByScene((prev) => ({
+      ...prev,
+      [scene.id]: ((prev[scene.id] ?? defaultTrackIndexForScene(scene.id)) - 1 + sceneTracks.length) % sceneTracks.length,
+    }));
+  };
+  const nextTrack = () => {
+    setUserPickedTrack(true);
+    setTrackIdxByScene((prev) => ({
+      ...prev,
+      [scene.id]: ((prev[scene.id] ?? defaultTrackIndexForScene(scene.id)) + 1) % sceneTracks.length,
+    }));
+  };
+
+  const jumpToScene = (target: Scene | null) => {
+    setOverride(target);
+    if (!target) return;
+
+    const targetTracks = tracksForScene(target.id);
+    const baseIndex = defaultTrackIndexForScene(target.id);
+    const currentIndex = trackIdxByScene[target.id] ?? baseIndex;
+    const nextIndex = (currentIndex + 1) % targetTracks.length;
+
+    setUserPickedTrack(true);
+    setTrackIdxByScene((prev) => ({
+      ...prev,
+      [target.id]: nextIndex,
+    }));
+  };
 
   return (
     <main className="scene-root fixed inset-0 overflow-hidden">
@@ -113,7 +174,7 @@ export default function Page() {
 
         <div className="hero">
           <div className="hero-accent">कोडर की मेज़</div>
-          <h1 className="hero-title">the coder desk</h1>
+          <h1 className="hero-title">the coder&apos;s desk</h1>
         </div>
 
         <div className="bottom">
@@ -129,9 +190,15 @@ export default function Page() {
               <span className="dsa-label">on screen</span> {solving || "…"}
             </span>
             <div className="dsa-btns">
-              <button className="dsa-btn" onClick={() => solverRef.current?.solveNow()}>▷ Solve</button>
+              <button className="dsa-btn" onClick={() => solverRef.current?.prev()}>← Prev</button>
               <button className="dsa-btn" onClick={() => solverRef.current?.next()}>Next →</button>
-              <button className="dsa-btn dsa-lab" onClick={() => setLabOpen(true)}>⌨ Code Lab</button>
+              <button
+                className="dsa-btn dsa-lab"
+                onClick={() => { setLabProblem(null); setLabOpen(true); }}
+                title="Practice DSA questions in the IDE and open the full Code Lab for other languages, bigger editors, and custom stdin runs."
+              >
+                ⌨ Code Lab
+              </button>
             </div>
           </div>
         </div>
@@ -148,12 +215,27 @@ export default function Page() {
         minW={300}
         minH={170}
         getDefault={ideDefaultRect}
+        autoResetKey={scene.id}
         className="float-ide"
       >
-        <Solver ref={solverRef} onProblemChange={setSolving} />
+        <Solver
+          ref={solverRef}
+          onProblemChange={setSolving}
+          onEditInLab={(id) => { setLabProblem(id); setLabOpen(true); }}
+        />
       </Floating>
 
-      <Tablet track={track} onPrev={prevTrack} onNext={nextTrack} />
+      <Tablet
+        track={track}
+        playlistId={scenePlaylist}
+        sceneId={scene.id}
+        startIndex={sceneTrackIdx}
+        onPrev={prevTrack}
+        onNext={nextTrack}
+        onPlayingChange={setIsPlaying}
+        onTrackChange={setNowPlaying}
+        onToggleRef={musicRef}
+      />
 
       <div className="timeline">
         {SCENES.map((s) => {
@@ -162,7 +244,7 @@ export default function Page() {
             <button
               key={s.id}
               className={`tl-node ${active ? "tl-active" : ""}`}
-              onClick={() => setOverride(s.id === liveScene.id && isLive ? null : s)}
+              onClick={() => jumpToScene(s.id === liveScene.id && isLive ? null : s)}
               title={s.label}
             >
               <span className="tl-dot" />
@@ -172,7 +254,7 @@ export default function Page() {
         })}
         <button
           className={`tl-now ${isLive ? "tl-now-on" : ""}`}
-          onClick={() => setOverride(null)}
+          onClick={() => jumpToScene(null)}
           title={isLive ? "following your clock" : "back to the live hour"}
         >
           now
@@ -184,7 +266,20 @@ export default function Page() {
         <a href="https://vishal-portfolio-neon.vercel.app" target="_blank" rel="noopener noreferrer">Vishal</a>
       </div>
 
-      {labOpen && <CodeLab onClose={() => setLabOpen(false)} />}
+      {labOpen && (
+        <CodeLab
+          key={labProblem ?? "scratch"}
+          initialProblemId={labProblem}
+          music={{
+            ...nowPlaying,
+            playing: isPlaying,
+            toggle: () => musicRef.current?.toggle(),
+            prev: () => musicRef.current?.prev(),
+            next: () => musicRef.current?.next(),
+          }}
+          onClose={() => setLabOpen(false)}
+        />
+      )}
     </main>
   );
 }

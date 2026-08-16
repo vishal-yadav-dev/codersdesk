@@ -4,18 +4,19 @@ import { SOLVED_FOR_MONITOR as PROBLEMS } from "./problems";
 import { runJs } from "./runJs";
 
 export interface SolverHandle {
-  solveNow: () => void;
+  prev: () => void;
   next: () => void;
 }
 
-/**
- * The live IDE. Idles by typing out each solution and cycling to the next one;
- * hitting Edit suspends all of that and hands the code area over as a real
- * editor, which runs locally via runJs(). Exposes solveNow()/next() so the
- * page's control bar can drive it too.
- */
-const Solver = forwardRef<SolverHandle, { onProblemChange?: (title: string) => void }>(
-  function Solver({ onProblemChange }, ref) {
+const Solver = forwardRef<
+  SolverHandle,
+  {
+    onProblemChange?: (title: string) => void;
+    /** hand this problem to the Code Lab instead of editing on the monitor */
+    onEditInLab?: (problemId: string) => void;
+  }
+>(
+  function Solver({ onProblemChange, onEditInLab }, ref) {
     const [idx, setIdx] = useState(0);
     const [linesShown, setLinesShown] = useState(0);
     const [phase, setPhase] = useState<"typing" | "done">("typing");
@@ -28,9 +29,14 @@ const Solver = forwardRef<SolverHandle, { onProblemChange?: (title: string) => v
 
     const problem = PROBLEMS[idx];
 
-    const solveNow = () => {
-      setLinesShown(problem.solution.length);
-      setPhase("done");
+    /** Step back a problem. Replaces the old Solve button, which only skipped
+     *  the typing animation — the auto-advance already gets there on its own. */
+    const prev = () => {
+      setEditing(false);
+      setOutput("");
+      setIdx((i) => (i - 1 + PROBLEMS.length) % PROBLEMS.length);
+      setLinesShown(0);
+      setPhase("typing");
     };
     const next = () => {
       setEditing(false);
@@ -38,6 +44,11 @@ const Solver = forwardRef<SolverHandle, { onProblemChange?: (title: string) => v
       setIdx((i) => (i + 1) % PROBLEMS.length);
       setLinesShown(0);
       setPhase("typing");
+    };
+
+    const edit = () => {
+      if (onEditInLab) onEditInLab(problem.id);
+      else startEdit();
     };
 
     const startEdit = () => {
@@ -69,7 +80,7 @@ const Solver = forwardRef<SolverHandle, { onProblemChange?: (title: string) => v
       onProblemChange?.(problem.title);
     }, [problem.title, onProblemChange]);
 
-    useImperativeHandle(ref, () => ({ solveNow, next }));
+    useImperativeHandle(ref, () => ({ prev, next }));
 
     // type lines out — suspended while you're editing
     useEffect(() => {
@@ -120,8 +131,8 @@ const Solver = forwardRef<SolverHandle, { onProblemChange?: (title: string) => v
           ) : (
             <pre
               className="solver-code solver-code-tap"
-              onClick={startEdit}
-              title="click to edit this code"
+              onClick={edit}
+              title="open this problem in the Code Lab"
             >
               {problem.solution.slice(0, linesShown).map((ln, i) => (
                 <div key={i} className="code-line">
@@ -177,12 +188,8 @@ const Solver = forwardRef<SolverHandle, { onProblemChange?: (title: string) => v
             </>
           ) : (
             <>
-              {phase === "typing" ? (
-                <button className="mon-btn mon-solve" onClick={solveNow}>▷ Solve</button>
-              ) : (
-                <span className="mon-status">✓ solved</span>
-              )}
-              <button className="mon-btn" onClick={startEdit}>✎ Edit</button>
+              <button className="mon-btn" onClick={prev}>← Prev</button>
+              <button className="mon-btn mon-solve" onClick={edit}>✎ Edit</button>
               <button className="mon-btn" onClick={next}>Next →</button>
             </>
           )}

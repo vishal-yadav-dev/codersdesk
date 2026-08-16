@@ -2,20 +2,20 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "the coder desk — one dev's desk, every hour of the day",
+  title: "Coder Desk | Music and IDE for Practice",
   description:
-    "One developer's desk, every hour of the day. Same desk, same chair — the light, the screen and the sound are what change. Visit at 3am, visit at 9am.",
+    "Practice DSA and other problems in a live multi-language IDE, reveal detailed solutions, and code to a switchable music playlist. One developer's desk, every hour of the day.",
   openGraph: {
-    title: "the coder desk",
+    title: "Coder Desk | Music and IDE for Practice",
     description:
-      "One developer's desk, every hour of the day. Same desk — the light, the screen and the sound are what change.",
+      "Practice DSA and other problems in a live multi-language IDE, with a switchable music playlist. One developer's desk, every hour of the day.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "the coder desk",
+    title: "Coder Desk | Music and IDE for Practice",
     description:
-      "One developer's desk, every hour of the day. The light, the screen and the sound change by the hour.",
+      "Practice DSA and interview problems in a live IDE, with a switchable music playlist.",
   },
 };
 
@@ -31,6 +31,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <link rel="icon" href="/logo.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/logo.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
